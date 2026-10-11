@@ -1,0 +1,6 @@
+@SellFlowApi_HostAddress = http://localhost:5267
+
+GET {{SellFlowApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

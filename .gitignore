@@ -1,0 +1,12 @@
+# Build and temporary files
+bin/
+obj/
+*.user
+.vs/
+.idea/
+
+# Local configuration secrets (do not push passwords to GitHub!)
+appsettings.Development.json
+
+# Logs
+*.log
