@@ -1,0 +1,15 @@
+# Render Blueprint. Optional: you can also enter the same values by hand in the Render dashboard.
+services:
+  - type: web                 # must be a Web Service (the app is server-rendered), not a Static Site
+    name: sellflow-frontend
+    runtime: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_API_URL
+        value: https://sellflowapi.onrender.com
+      - key: VITE_SITE_URL
+        sync: false           # set to your live address in the dashboard
