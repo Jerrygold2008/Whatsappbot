@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CreditCard } from "lucide-react";
@@ -8,11 +8,19 @@ import { naira } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function PlanStep() {
+  // 1. Add a state to track if the component has mounted in the browser
+  const [isMounted, setIsMounted] = useState(false);
+
   const plans = useQuery({ queryKey: ["plans"], queryFn: api.plans });
   // Same key the wizard reads. Polling lets the page move on as soon as the payment is confirmed,
   // even when the customer pays in another tab.
   const sub = useQuery({ queryKey: ["subscription"], queryFn: api.subscription, refetchInterval: 4000, refetchOnWindowFocus: true });
   const [picked, setPicked] = useState<string | null>(null);
+
+  // 2. Set isMounted to true as soon as the browser takes over
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const list = plans.data ?? [];
   const chosen = list.find((p) => p.id === picked) ?? list[0];
@@ -23,6 +31,24 @@ export function PlanStep() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // 3. Prevent hydration mismatch: render a stable skeleton on the server
+  if (!isMounted) {
+    return (
+      <div className="surface space-y-5 p-7">
+        <div className="grid size-11 place-items-center rounded-lg bg-accent text-accent-foreground">
+          <CreditCard className="size-5" />
+        </div>
+        <div>
+          <h1 className="text-xl font-extrabold tracking-tight">Choose your plan</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Your subscription keeps your WhatsApp store and dashboard active.</p>
+        </div>
+        <div className="h-24 animate-pulse rounded-lg bg-muted/60" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted/60" />
+      </div>
+    );
+  }
+
+  // 4. The actual component logic (only runs in the browser after mounting)
   return (
     <div className="surface space-y-5 p-7">
       <div className="grid size-11 place-items-center rounded-lg bg-accent text-accent-foreground"><CreditCard className="size-5" /></div>
