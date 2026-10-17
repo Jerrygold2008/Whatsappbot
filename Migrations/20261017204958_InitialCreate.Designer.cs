@@ -12,8 +12,8 @@ using SellFlowApi.Data;
 namespace SellFlowApi.Migrations
 {
     [DbContext(typeof(SellFlowApiDbContext))]
-    [Migration("20261009081840_initialCreate")]
-    partial class initialCreate
+    [Migration("20261017204958_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -570,6 +570,33 @@ namespace SellFlowApi.Migrations
                         {
                             t.HasCheckConstraint("CK_Product_Stock", "\"StockQuantity\" >= 0 AND \"ReservedQuantity\" >= 0 AND \"ReservedQuantity\" <= \"StockQuantity\"");
                         });
+                });
+
+            modelBuilder.Entity("SellFlowApi.Models.ProductImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BusinessId");
+
+                    b.ToTable("ProductImages");
                 });
 
             modelBuilder.Entity("SellFlowApi.Models.StockReservation", b =>

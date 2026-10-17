@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SellFlowApi.Migrations
 {
     /// <inheritdoc />
-    public partial class initialCreate : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -195,6 +195,21 @@ namespace SellFlowApi.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Payments", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductImages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    BusinessId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Data = table.Column<byte[]>(type: "bytea", nullable: false),
+                    ContentType = table.Column<string>(type: "text", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductImages", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -470,6 +485,11 @@ namespace SellFlowApi.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_ProductImages_BusinessId",
+                table: "ProductImages",
+                column: "BusinessId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Products_BusinessId_IsActive",
                 table: "Products",
                 columns: new[] { "BusinessId", "IsActive" });
@@ -536,6 +556,9 @@ namespace SellFlowApi.Migrations
 
             migrationBuilder.DropTable(
                 name: "Payments");
+
+            migrationBuilder.DropTable(
+                name: "ProductImages");
 
             migrationBuilder.DropTable(
                 name: "Products");
