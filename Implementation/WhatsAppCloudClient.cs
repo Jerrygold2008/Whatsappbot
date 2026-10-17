@@ -131,5 +131,10 @@ public class WhatsAppCloudClient(HttpClient http, ITokenEncryptor crypto, ILogge
     }
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..(max - 1)] + "…";
-}
+
+        public Task<bool> SendProductCardAsync(WhatsAppAccount account, string to, string body, string? imageUrl, params (string Id, string Title)[] buttons)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

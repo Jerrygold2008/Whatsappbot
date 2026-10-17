@@ -72,7 +72,7 @@ builder.Services.AddSingleton<ITokenEncryptor, AesTokenEncryptor>();
 builder.Services.AddScoped<IBusinessService, BusinessService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
-builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddScoped<IFileStorageService, DbFileStorageService>();
 builder.Services.AddScoped<IStockService, StockService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();

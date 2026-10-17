@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Package, ImagePlus, Pencil } from "lucide-react";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Empty, PageHeader, Pill } from "@/components/app/kit";
+import { preparePhoto } from "@/lib/photo";
 import { api } from "@/lib/api";
 import { naira } from "@/lib/format";
 import type { Product, ProductRequest } from "@/lib/types";
@@ -23,6 +24,9 @@ export function ProductsView() {
   const { data: cats = [] } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
   const [edit, setEdit] = useState<{ id?: string; form: ProductRequest } | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  // Small preview so the merchant can see they picked the right photo from their gallery.
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   const [filter, setFilter] = useState<string>("all");
 
   const save = useMutation({
@@ -96,9 +100,21 @@ export function ProductsView() {
                 </select>
               </div>
               <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3 text-sm text-muted-foreground hover:bg-muted/50">
-                <ImagePlus className="size-5" />{file ? file.name : "Upload product photo"}
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                {preview ? <img src={preview} alt="Chosen product photo" className="size-12 rounded-md object-cover" /> : <ImagePlus className="size-5" />}
+                {file ? "Change photo" : "Choose a photo from your phone"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const picked = e.target.files?.[0];
+                    e.target.value = ""; // lets the merchant pick the same photo again
+                    if (!picked) return;
+                    try { setFile(await preparePhoto(picked)); } catch (err) { toast.error((err as Error).message); }
+                  }}
+                />
               </label>
+              <p className="-mt-2 text-xs text-muted-foreground">Pick any photo from your gallery or take a new one. We resize it for WhatsApp automatically.</p>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div><p className="text-sm font-semibold">Visible to customers</p><p className="text-xs text-muted-foreground">Turn off to hide from the bot.</p></div>
                 <Switch checked={f.isActive} onCheckedChange={(v) => set({ isActive: v })} />

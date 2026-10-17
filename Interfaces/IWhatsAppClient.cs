@@ -19,6 +19,10 @@ public interface IWhatsAppClient
     /// <summary>Approved template with positional body parameters ({{1}}, {{2}}, ...).</summary>
     Task<bool> SendTemplateAsync(WhatsAppAccount account, string to, string template, string language, params string[] bodyParams);
 
+    /// <summary>Product card: optional photo (public https link to a JPG/PNG), a text body and 1-3 tap buttons.</summary>
+    Task<bool> SendProductCardAsync(WhatsAppAccount account, string to, string body, string? imageUrl,
+        params (string Id, string Title)[] buttons);
+
     Task<(byte[] Data, string Mime)?> DownloadMediaAsync(WhatsAppAccount account, string mediaId);
     Task<string?> UploadMediaAsync(WhatsAppAccount account, byte[] data, string mime);
 }

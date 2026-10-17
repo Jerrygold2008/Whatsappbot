@@ -14,6 +14,7 @@ public class SellFlowApiDbContext(DbContextOptions<SellFlowApiDbContext> options
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
       public DbSet<PaymentProof> PaymentProofs => Set<PaymentProof>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
@@ -35,6 +36,7 @@ public class SellFlowApiDbContext(DbContextOptions<SellFlowApiDbContext> options
     {
         b.Entity<User>().HasIndex(x => x.Email).IsUnique();
         b.Entity<PaymentProof>().HasIndex(x => new { x.BusinessId, x.OrderId });
+        b.Entity<ProductImage>().HasIndex(x => x.BusinessId);
 
         // Routing key: webhook phone_number_id -> business
         b.Entity<WhatsAppAccount>().HasIndex(x => x.PhoneNumberId).IsUnique();

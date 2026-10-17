@@ -66,10 +66,20 @@ public class ProductService(SellFlowApiDbContext db) : IProductService
     public async Task<ProductResponse> SetImageAsync(Guid businessId, Guid id, string imageUrl)
     {
         var p = await Find(businessId, id);
+        var oldImageId = ImageIdFrom(p.ImageUrl);
         p.ImageUrl = imageUrl;
         await db.SaveChangesAsync();
+
+        // Remove the replaced photo so old ones don't pile up in the database.
+        if (oldImageId is not null)
+            await db.ProductImages.Where(x => x.Id == oldImageId.Value && x.BusinessId == businessId).ExecuteDeleteAsync();
         return Map(p);
     }
+
+    // Photos are served at .../api/images/{id}; this pulls the id back out of a saved link.
+    private static Guid? ImageIdFrom(string? url) =>
+        url is not null && url.Contains("/api/images/", StringComparison.Ordinal)
+        && Guid.TryParse(url[(url.LastIndexOf('/') + 1)..], out var imageId) ? imageId : null;
 
     private async Task<Product> Find(Guid businessId, Guid id) =>
         await db.Products.FirstOrDefaultAsync(p => p.Id == id && p.BusinessId == businessId)

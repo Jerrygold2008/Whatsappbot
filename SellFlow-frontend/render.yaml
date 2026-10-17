@@ -13,3 +13,7 @@ services:
         value: https://sellflowapi.onrender.com
       - key: VITE_SITE_URL
         sync: false           # set to your live address in the dashboard
+      - key: VITE_SUPPORT_WHATSAPP
+        sync: false           # your number for the "Connect WhatsApp" buttons, digits only e.g. 2348012345678
+      - key: VITE_SUPPORT_EMAIL
+        sync: false

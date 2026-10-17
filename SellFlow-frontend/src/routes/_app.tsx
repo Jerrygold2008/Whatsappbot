@@ -22,6 +22,7 @@ const nav = [
   { to: "/products", label: "Products", icon: Package },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/payments", label: "Payments", icon: Wallet },
+  { to: "/whatsapp", label: "WhatsApp", icon: MessageCircle },
   { to: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -55,17 +56,20 @@ function SideNav({ onNavigate }: { onNavigate?: () => void }) {
               {to === "/orders" && toReview > 0 && (
                 <span className="ml-auto rounded-full bg-sidebar-primary px-2 text-xs font-bold text-sidebar-primary-foreground">{toReview}</span>
               )}
+              {to === "/whatsapp" && biz && !biz.whatsAppConnected && (
+                <span className="ml-auto rounded-full bg-warning px-2 text-xs font-bold text-warning-foreground">Connect</span>
+              )}
             </Link>
           );
         })}
       </nav>
-      <div className="m-3 rounded-lg border border-sidebar-border p-3 text-xs">
+      <Link to="/whatsapp" onClick={onNavigate} className="m-3 block rounded-lg border border-sidebar-border p-3 text-xs transition-colors hover:bg-sidebar-accent/60">
         <div className="flex items-center gap-2 font-semibold text-sidebar-accent-foreground">
           <span className={cn("size-2 rounded-full", biz?.whatsAppConnected ? "bg-sidebar-primary" : "bg-warning")} />
           {biz?.whatsAppConnected ? "WhatsApp connected" : "WhatsApp not connected"}
         </div>
-        <p className="mt-1 text-sidebar-foreground/70">{biz?.whatsAppNumber ?? "Contact support to link your number"}</p>
-      </div>
+        <p className="mt-1 text-sidebar-foreground/70">{biz?.whatsAppNumber ?? "Tap here to connect your number"}</p>
+      </Link>
       <button
         onClick={() => { storage.clear(); navigate({ to: "/login" }); }}
         className="mx-3 mb-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold hover:bg-sidebar-accent/60">

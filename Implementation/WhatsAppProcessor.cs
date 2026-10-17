@@ -94,7 +94,7 @@ public class WhatsAppProcessor(SellFlowApiDbContext db, IWhatsAppClient wa, ISto
  
         try
         {
-            await DispatchAsync(m.Input, convo, ctx, customer, businessId, send);
+            await DispatchAsync(m, account, convo, ctx, customer, businessId, send);
         }
         catch (DomainException ex)
         {
@@ -105,9 +105,10 @@ public class WhatsAppProcessor(SellFlowApiDbContext db, IWhatsAppClient wa, ISto
         await db.SaveChangesAsync();
     }
  
-    private async Task DispatchAsync(string input, Conversation convo, ChatContext ctx, Customer customer,
+    private async Task DispatchAsync(InboundMessage m, WhatsAppAccount account, Conversation convo, ChatContext ctx, Customer customer,
                                      Guid businessId, Func<string, Task> send)
     {
+        var input = m.Input;
         var lower = input.ToLowerInvariant();
  
         // Global commands work in any state
@@ -116,23 +117,40 @@ public class WhatsAppProcessor(SellFlowApiDbContext db, IWhatsAppClient wa, ISto
         if (lower is Human) { convo.State = ConversationState.HumanSupport;
             await send("Connecting you to the business. They'll reply here shortly. Type *menu* to return to the bot."); return; }
  
+        // Button taps. They work from any state, so a customer can also tap an older product card.
+        if (input.StartsWith("order:", StringComparison.Ordinal))
+        {
+            var wanted = Guid.TryParse(input["order:".Length..], out var wantedId)
+                ? await db.Products.FirstOrDefaultAsync(x => x.Id == wantedId && x.BusinessId == businessId && x.IsActive)
+                : null;
+            if (wanted is null || wanted.Available <= 0)
+            {
+                await send("Sorry, that product just sold out. Type *menu* to see what's available.");
+                return;
+            }
+            ctx.ProductId = wanted.Id;
+            convo.State = ConversationState.SelectingQuantity;
+            await AskQuantityAsync(account, m.From, convo, wanted);
+            return;
+        }
+        if (input.StartsWith("more:", StringComparison.Ordinal) && int.TryParse(input["more:".Length..], out var nextOffset))
+        {
+            convo.State = ConversationState.ViewingProducts;
+            await SendProductCardsAsync(account, m.From, convo, businessId, nextOffset);
+            return;
+        }
+
         switch (convo.State)
         {
             case ConversationState.MainMenu:
-                await HandleMainMenu(input, convo, ctx, customer, businessId, send); break;
+                await HandleMainMenu(input, account, m.From, convo, ctx, customer, businessId, send); break;
  
             case ConversationState.ViewingProducts:
-                if (TryPick(input, ctx.ProductIds, out var pid))
-                {
-                    var p = await db.Products.FirstAsync(x => x.Id == pid && x.BusinessId == businessId);
-                    ctx.ProductId = p.Id;
-                    convo.State = ConversationState.SelectingQuantity;
-                    await send($"*{p.Name}*\n{Naira(p.Price)}\n{p.Description}\nIn stock: {p.Available}\n\nHow many would you like? (send a number)");
-                }
-                else await Invalid(convo, send, "Reply with a product number from the list.");
+                await Invalid(convo, send, "Tap the *Order* button under a product, or type *menu*.");
                 break;
  
             case ConversationState.SelectingQuantity:
+                if (input.StartsWith("qty:", StringComparison.Ordinal)) input = input["qty:".Length..];
                 if (int.TryParse(input, out var qty) && qty > 0)
                 {
                     var p = await db.Products.FirstAsync(x => x.Id == ctx.ProductId && x.BusinessId == businessId);
@@ -196,19 +214,14 @@ public class WhatsAppProcessor(SellFlowApiDbContext db, IWhatsAppClient wa, ISto
         }
     }
  
-    private async Task HandleMainMenu(string input, Conversation convo, ChatContext ctx, Customer customer,
+    private async Task HandleMainMenu(string input, WhatsAppAccount account, string to, Conversation convo, ChatContext ctx, Customer customer,
                                       Guid businessId, Func<string, Task> send)
     {
         switch (input)
         {
             case "1":
-                var products = await db.Products.Where(p => p.BusinessId == businessId && p.IsActive
-                                    && p.StockQuantity - p.ReservedQuantity > 0)
-                                    .OrderBy(p => p.Name).Take(20).ToListAsync();
-                ctx.ProductIds = products.Select(p => p.Id).ToList();
                 convo.State = ConversationState.ViewingProducts;
-                await send("🛍️ *Products*\n\n" + string.Join("\n", products.Select((p, i) => $"{i + 1}. {p.Name} — {Naira(p.Price)}"))
-                           + "\n\nReply with the product number.");
+                await SendProductCardsAsync(account, to, convo, businessId, 0);
                 break;
  
             case "2":
@@ -324,6 +337,57 @@ public class WhatsAppProcessor(SellFlowApiDbContext db, IWhatsAppClient wa, ISto
         await Reply($"🧾 *RECEIPT RECEIVED*\n━━━━━━━━━━━━━━\n*Order:* {num}\n━━━━━━━━━━━━━━\nThank you! The business is verifying your payment. You'll get a confirmation here shortly.");
         await ownerAlerts.NotifyPaymentProofAsync(proof.OrderId, proof.Id);
     }
+
+    // ---- Product cards: every product is its own message with its own Order button ----
+    private const int ProductPageSize = 5;   // each product is a separate WhatsApp message, so show a few at a time
+
+    private async Task SendProductCardsAsync(WhatsAppAccount account, string to, Conversation convo, Guid businessId, int offset)
+    {
+        offset = Math.Max(offset, 0);
+        var query = db.Products.AsNoTracking()
+            .Where(p => p.BusinessId == businessId && p.IsActive && p.StockQuantity - p.ReservedQuantity > 0)
+            .OrderBy(p => p.Name);
+
+        var total = await query.CountAsync();
+        var page = await query.Skip(offset).Take(ProductPageSize).ToListAsync();
+
+        if (page.Count == 0)
+        {
+            await wa.SendTextAsync(account, to, total == 0 ? "No products are available right now." : "That's everything we have.");
+            return;
+        }
+
+        foreach (var p in page)
+        {
+            var description = string.IsNullOrWhiteSpace(p.Description) ? "" : "\n\n" + Shorten(p.Description.Trim(), 500);
+            var body = $"*{p.Name}*\n{Naira(p.Price)}{description}\n\nIn stock: {p.Available}";
+            // The button id carries the product, so it keeps working even if the customer taps an older card.
+            await wa.SendProductCardAsync(account, to, body, PublicImageUrl(p.ImageUrl), ($"order:{p.Id}", "🛒 Order"));
+            db.Messages.Add(new Message { ConversationId = convo.Id, Sender = SenderType.Bot, Content = $"[Product] {p.Name}" });
+            await Task.Delay(300);   // keeps the cards in order on the customer's phone
+        }
+
+        var shown = offset + page.Count;
+        if (shown < total)
+            await wa.SendButtonsAsync(account, to, $"Showing {shown} of {total} products.", ($"more:{shown}", "Show more"), ("menu", "Main menu"));
+        else
+            await wa.SendButtonsAsync(account, to, "That's everything we have.", ("menu", "Main menu"));
+    }
+
+    private async Task AskQuantityAsync(WhatsAppAccount account, string to, Conversation convo, Product product)
+    {
+        // Quick buttons 1 / 2 / 3 (only up to the stock available). The customer can also type any number.
+        var buttons = Enumerable.Range(1, 3).Where(n => n <= product.Available).Select(n => ($"qty:{n}", n.ToString())).ToArray();
+        var body = $"*{product.Name}*, {Naira(product.Price)} each\nIn stock: {product.Available}\n\nHow many would you like? Tap a number below, or type any quantity.";
+        await wa.SendButtonsAsync(account, to, body, buttons);
+        db.Messages.Add(new Message { ConversationId = convo.Id, Sender = SenderType.Bot, Content = body });
+    }
+
+    // WhatsApp only accepts a public https link to a JPEG or PNG for the photo.
+    private static string? PublicImageUrl(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps ? u.ToString() : null;
+
+    private static string Shorten(string text, int max) => text.Length <= max ? text : text[..(max - 1)] + "…";
 
     private async Task ShowMenu(Conversation convo, ChatContext ctx, Guid businessId, Func<string, Task> send, string? prefix = null)
     {

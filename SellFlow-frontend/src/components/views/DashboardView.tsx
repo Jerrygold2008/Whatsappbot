@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, Banknote, Clock, PackageX, Receipt, AlertTriangle, ArrowRight } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
 import { Empty, NavTo, PageHeader, Panel, Stat } from "@/components/app/kit";
 import { OrdersTable } from "@/components/app/OrdersTable";
 import { OrderSheet } from "@/components/app/OrderSheet";
@@ -14,6 +16,7 @@ export function DashboardView({ onGo }: { onGo?: ((to: "/orders" | "/products") 
   const ov = useQuery({ queryKey: ["overview"], queryFn: api.overview });
   const orders = useQuery({ queryKey: ["orders"], queryFn: () => api.orders() });
   const ready = useQuery({ queryKey: ["readiness"], queryFn: api.readiness });
+  const biz = useQuery({ queryKey: ["business"], queryFn: api.business });
   const products = useQuery({ queryKey: ["products"], queryFn: api.products });
   const review = orders.data?.filter((o) => o.status === "Pending" && o.paymentStatus === "ProofSubmitted") ?? [];
   const low = products.data?.filter((p) => p.isActive && p.stockQuantity - p.reservedQuantity <= 5) ?? [];
@@ -25,7 +28,10 @@ export function DashboardView({ onGo }: { onGo?: ((to: "/orders" | "/products") 
       {ready.data && !ready.data.isLive && (
         <div className="mb-6 flex gap-3 rounded-xl border border-warning/50 bg-warning/10 p-4 text-sm">
           <AlertTriangle className="size-5 shrink-0 text-warning-foreground" />
-          <div><p className="font-bold">Your store is not live yet</p><p className="text-muted-foreground">To finish: {ready.data.missing.join(" · ")}</p></div>
+          <div className="flex-1"><p className="font-bold">Your store is not live yet</p><p className="text-muted-foreground">To finish: {ready.data.missing.join(" · ")}</p></div>
+          {!onGo && biz.data && !biz.data.whatsAppConnected && (
+            <Button asChild size="sm" className="self-center"><Link to="/whatsapp">Connect WhatsApp</Link></Button>
+          )}
         </div>
       )}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
